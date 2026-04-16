@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "scripts": {},
   "dependencies": {
-    "solapi": "^5.5.4"
+    "solapi": "^5.5.4",
+    "xlsx": "^0.18.5"
   }
 }
