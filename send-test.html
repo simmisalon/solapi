@@ -12,6 +12,17 @@
 
     <div class="space-y-4">
       <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">관리자 토큰</label>
+        <input
+          id="adminToken"
+          type="password"
+          placeholder="ADMIN_TOKEN"
+          class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          autocomplete="current-password"
+        />
+      </div>
+
+      <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">수신번호</label>
         <input
           id="to"
@@ -32,6 +43,18 @@
         <p class="text-xs text-gray-400 mt-1 text-right"><span id="charCount">0</span> / 90자 (초과 시 LMS)</p>
       </div>
 
+      <div class="rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <label class="flex items-start gap-2 cursor-pointer">
+          <input id="promotional" type="checkbox" class="mt-0.5" />
+          <div class="text-sm">
+            <span class="font-medium text-amber-900">광고성 문자</span>
+            <p class="text-xs text-amber-700 mt-0.5">
+              체크 시 <code>(광고)</code>·수신거부 자동 삽입, 야간 차단.
+            </p>
+          </div>
+        </label>
+      </div>
+
       <button
         id="sendBtn"
         onclick="sendSMS()"
@@ -47,24 +70,27 @@
   </div>
 
   <script>
+    const TOKEN_KEY = 'solapi_admin_token';
     const textArea = document.getElementById('text');
     const charCount = document.getElementById('charCount');
+    const tokenInput = document.getElementById('adminToken');
+    tokenInput.value = localStorage.getItem(TOKEN_KEY) || '';
 
     textArea.addEventListener('input', () => {
       charCount.textContent = textArea.value.length;
     });
 
     async function sendSMS() {
+      const token = tokenInput.value.trim();
       const to = document.getElementById('to').value.trim();
       const text = textArea.value.trim();
+      const promotional = document.getElementById('promotional').checked;
       const btn = document.getElementById('sendBtn');
       const result = document.getElementById('result');
       const resultBox = document.getElementById('resultBox');
 
-      if (!to || !text) {
-        alert('수신번호와 메시지를 모두 입력해 주세요.');
-        return;
-      }
+      if (!token) { alert('관리자 토큰을 입력해 주세요.'); return; }
+      if (!to || !text) { alert('수신번호와 메시지를 모두 입력해 주세요.'); return; }
 
       btn.disabled = true;
       btn.textContent = '발송 중...';
@@ -72,19 +98,23 @@
       try {
         const res = await fetch('/api/send', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to, text }),
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-token': token,
+          },
+          body: JSON.stringify({ to, text, promotional }),
         });
 
         const data = await res.json();
 
         result.classList.remove('hidden');
         if (data.success) {
+          localStorage.setItem(TOKEN_KEY, token);
           resultBox.className = 'rounded-lg px-4 py-3 text-sm bg-green-50 text-green-700 border border-green-200';
           resultBox.textContent = '발송 성공!';
         } else {
           resultBox.className = 'rounded-lg px-4 py-3 text-sm bg-red-50 text-red-700 border border-red-200';
-          resultBox.textContent = '발송 실패: ' + data.error;
+          resultBox.textContent = '발송 실패: ' + (data.error || res.status);
         }
       } catch (e) {
         result.classList.remove('hidden');

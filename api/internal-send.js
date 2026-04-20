@@ -1,4 +1,4 @@
-const { verifyAdminToken } = require("./_lib/auth.js");
+const { verifyInternalToken } = require("./_lib/auth.js");
 const { isNightBlocked, applyAdFormatting, normalizePhone } = require("./_lib/format.js");
 
 module.exports = async function handler(req, res) {
@@ -6,11 +6,11 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "POST 요청만 허용됩니다." });
   }
 
-  if (!verifyAdminToken(req)) {
+  if (!verifyInternalToken(req)) {
     return res.status(401).json({ error: "인증 실패" });
   }
 
-  const { to, text, promotional = false } = req.body || {};
+  const { project, to, text, promotional = false } = req.body || {};
 
   const normalizedTo = normalizePhone(to);
   if (!normalizedTo) {
@@ -22,7 +22,7 @@ module.exports = async function handler(req, res) {
 
   if (promotional && !process.env.SOLAPI_UNSUBSCRIBE_NUMBER) {
     return res.status(503).json({
-      error: "080 수신거부 번호(SOLAPI_UNSUBSCRIBE_NUMBER) 미설정 — 광고성 발송 불가",
+      error: "광고성 발송 불가 — 080 수신거부 번호 미설정",
     });
   }
   if (isNightBlocked(promotional)) {
@@ -48,9 +48,11 @@ module.exports = async function handler(req, res) {
       text: finalText,
     });
 
-    return res.status(200).json({ success: true, result });
+    console.log(`[internal-send] ${project || "unknown"} → ${normalizedTo} (${promotional ? "ad" : "info"})`);
+
+    return res.status(200).json({ success: true, project, result });
   } catch (error) {
-    console.error("발송 오류:", error);
+    console.error("[internal-send] 발송 오류:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 };
